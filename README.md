@@ -35,6 +35,10 @@ private static void Main(string[] args)
        }
 ```
 
+### Multiple physical addresses 
+
+Dash Buttons have two physical addresses, one for when they are waking up/pressed and the other for their sync attempt/shutting down. This library monitors for them, you have to handle the logic. 
+
 ### Requirements
 
 You'll neeed [WinPcap](https://www.winpcap.org/) on Windows and Pcap on Linux or OSX. 
