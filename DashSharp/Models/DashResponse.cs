@@ -9,9 +9,8 @@ namespace DashSharp.Models
 {
     public class DashResponse : EventArgs
     {
-        public string DashName { get; set; }
         public string DashMac { get; set; }
         public int DashId { get; set; }
-        public byte[] DashData { get; set; }
+        public string Device { get; set; }
     }
 }

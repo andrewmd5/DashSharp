@@ -11,9 +11,11 @@ namespace DashExample
 {
     class Program
     {
+      
         private static void Main(string[] args)
         {
             Console.Title = "DashSharp - Amazon Dash Button";
+            Console.WriteLine("Dash Buttons have two MAC addresses, their wakeup and their pair. The last one you receive is the pair address. ");
             var network = new DashNetwork();
             network.ListenerStarted += network_ListenerStarted;
             network.DashButtonProbed += network_DashProbed;
@@ -31,12 +33,13 @@ namespace DashExample
         private static void network_DashProbed(object sender, EventArgs e)
         {
             var probe = (DashResponse)e;
-            Console.WriteLine("Amazon Dash Connected: Digestive Advantage " + probe.DashMac);
+            Console.WriteLine("Amazon Dash Connected: " + probe.DashMac + " seen on " + probe.Device);
+         
         }
 
         private static void network_ListenerStarted(object sender, EventArgs e)
         {
-            Console.WriteLine("Listener Started " + ((DashListenerResponse)e).Started);
+            Console.WriteLine(((DashListenerResponse)e).Message);
         }
     }
 }

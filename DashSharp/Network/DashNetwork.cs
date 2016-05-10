@@ -1,15 +1,17 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿#region
+
+using System;
 using DashSharp.Exceptions;
 using DashSharp.Models;
 using PacketDotNet;
 using SharpPcap;
 
+#endregion
+
 namespace DashSharp
 {
     public class DashNetwork
     {
-        private ICaptureDevice _device;
         private const int ReadTimeoutMilliseconds = 1000;
         public event EventHandler ListenerStarted;
         public event EventHandler DashButtonProbed;
@@ -25,17 +27,40 @@ namespace DashSharp
                 {
                     throw new PcapMissingException("No interfaces found! Make sure WinPcap is installed.");
                 }
-                //default to the first device
-                _device = devices[0];
-                if (_device != null)
+                foreach (var device in devices)
                 {
-                    _device.OnPacketArrival += device_OnPacketArrival;   
-                    _device.Open(DeviceMode.Promiscuous, ReadTimeoutMilliseconds);
+                    if (device == null) continue;
+                    device.OnPacketArrival += delegate(object sender, CaptureEventArgs e)
+                    {
+                        var packet = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data);
+                        var eth = (EthernetPacket) packet;
+                        var dashMac = eth.SourceHwAddress.ToString();
+                        if (dashMac.Equals(device.MacAddress.ToString()))
+                        {
+                            //ignore packets from our own device
+                            return;
+                        }
+                        var dashId = dashMac.GetHashCode();
 
+                        DashButtonProbed?.Invoke(this,
+                            new DashResponse
+                            {
+                                DashMac = dashMac,
+                                DashId = dashId,
+                                Device = device.MacAddress.ToString()
+                            });
+                    };
+                    device.Open(DeviceMode.Promiscuous, ReadTimeoutMilliseconds);
                     // tcpdump filter to capture only ARP Packets
-                    var filter = "arp";
-                    _device.Filter = filter;
-                    AsyncCapture();
+                    device.Filter = "arp";
+                    Action action = device.Capture;
+                    action.BeginInvoke(ar => action.EndInvoke(ar), null);
+                    ListenerStarted?.Invoke(this,
+                        new DashListenerResponse
+                        {
+                            Started = true,
+                            Message = $"Started listenr on {device.MacAddress}"
+                        });
                 }
             }
             catch (Exception)
@@ -43,31 +68,5 @@ namespace DashSharp
                 throw new PcapMissingException("No interfaces found! Make sure WinPcap is installed.");
             }
         }
-
-        private void AsyncCapture()
-        {
-            Action action = _device.Capture;
-            action.BeginInvoke(ar => action.EndInvoke(ar), null);
-            ListenerStarted?.Invoke(this, new DashListenerResponse { Started = true });
-        }
-
-        /// <summary>
-        ///     Prints the time and length of each received packet
-        /// </summary>
-        private void device_OnPacketArrival(object sender, CaptureEventArgs e)
-        {
-            //dash wakeup sends a packet this long
-            if (e.Packet.Data.Length == 60)
-            {
-                var dashMac = e.Device.MacAddress.ToString();
-                var dashName = e.Device.Name;
-                var dashId = e.Device.MacAddress.GetHashCode();
-                var dashData = e.Packet.Data;
-                DashButtonProbed?.Invoke(this, new DashResponse { DashName = dashName, DashMac = dashMac, DashId = dashId, DashData = dashData });
-            }
-            
-        }
-
-      
     }
 }
